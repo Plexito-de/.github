@@ -1,0 +1,29 @@
+name: Enforce sponsor button
+
+# Every public repo of chrikrah and Plexito-de shows the Sponsor button.
+# Needs the SPONSOR_TOKEN secret: a classic PAT with the public_repo scope,
+# owned by chrikrah, so it can edit repos under both owners.
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Turn on sponsorships
+        env:
+          GH_TOKEN: ${{ secrets.SPONSOR_TOKEN }}
+        run: ./scripts/enforce-sponsorships.sh
+      # GitHub disables scheduled workflows in a public repo after 60 days
+      # without a commit. Re-enabling through the API resets that clock.
+      - name: Keep the schedule alive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/enforce-sponsorships.yml/enable"
