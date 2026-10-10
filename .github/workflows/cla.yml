@@ -1,0 +1,39 @@
+name: CLA check (reusable)
+
+# Called from each Plexito-de repository's own cla.yml on pull_request_target and on
+# issue_comment. It never checks out the pull request: it reads metadata through the API and
+# runs only the script from this repository.
+on:
+  workflow_call:
+    inputs:
+      allowlist:
+        description: Comma-separated logins that need no signature. A * matches any text.
+        type: string
+        default: ""
+
+permissions: {}
+
+jobs:
+  cla:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the signature record on the cla-signatures branch
+      pull-requests: write # the comment that asks for a signature
+      statuses: write # the cla commit status
+    steps:
+      - name: Check out the CLA script (not the pull request)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Plexito-de/.github
+          ref: main
+          path: .plexito-cla
+          persist-credentials: false
+      - name: Check signatures
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          ALLOWLIST: ${{ inputs.allowlist }}
+        with:
+          script: |
+            const { run } = await import(`${process.env.GITHUB_WORKSPACE}/.plexito-cla/.github/scripts/cla.mjs`);
+            const allowlist = process.env.ALLOWLIST.split(",").map((s) => s.trim()).filter(Boolean);
+            await run({ github, context, core }, { allowlist });
