@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
-  BRANCH, FILE, PHRASE, allowed, committers, evaluate, isSignComment, run,
+  BRANCH, FILE, PHRASE, allowed, commentBody, committers, evaluate, isSignComment, run,
 } from "./cla.mjs";
 
 const alice = { login: "alice", id: 11, type: "User" };
@@ -46,7 +46,8 @@ function fakeGitHub({ commits, signatures = null, comments = [] }) {
     },
     issues: {
       listComments: async () => ({ data: state.comments }),
-      createComment: async ({ body }) => state.comments.push({ id: 1, body, user: { type: "Bot" } }),
+      createComment: async ({ body }) =>
+        state.comments.push({ id: 1, body, user: { type: "Bot", login: "github-actions[bot]" } }),
       updateComment: async ({ comment_id, body }) => {
         state.comments.find((c) => c.id === comment_id).body = body;
       },
@@ -71,14 +72,25 @@ test("allowlist supports a wildcard", () => {
   assert.ok(!allowed("alice", ["*[bot]", "chrikrah"]));
 });
 
-test("bots are skipped and unlinked commit authors are reported", () => {
+test("a bot needs the allowlist, not just its account type", () => {
   const who = committers(
     [{ author: bob }, { author: bot }, { author: null, commit: { author: { name: "Eve" } } }],
     alice,
   );
-  assert.deepEqual(who.users.map((u) => u.login), ["alice", "bob"]);
+  assert.deepEqual(who.users.map((u) => u.login), ["alice", "bob", "dependabot[bot]"]);
   assert.deepEqual(who.unlinked, ["Eve"]);
-  assert.equal(evaluate(who, [{ id: 11 }, { id: 22 }], []).ok, false);
+  const signed = [{ id: 11 }, { id: 22 }];
+  assert.deepEqual(evaluate(who, signed, []).missing.map((u) => u.login), ["dependabot[bot]"]);
+  assert.deepEqual(evaluate(who, signed, ["dependabot[bot]"]).missing, []);
+});
+
+test("an unlinked author name cannot inject markdown or a mention", () => {
+  const name = "x`](https://evil) @team\nhi";
+  const body = commentBody({ missing: [], unlinked: [name], ok: false });
+  const span = body.match(/Commits by `([^`]*)`/);
+  assert.ok(span, "the name stays inside exactly one code span");
+  assert.ok(!/[`@\n\[\]()]/.test(span[1]), span[1]);
+  assert.ok(!body.includes("@team"));
 });
 
 test("unsigned author: failure status and one comment with the phrase", async () => {

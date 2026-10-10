@@ -23,8 +23,9 @@ A person authorized to sign for the Legal Entity sends an email to
 4. The GitHub user names of the employees who contribute for the Legal Entity. Send an update
    when this list changes.
 
-We confirm by email and add the user names to the signature record. Each listed employee still
-posts the sign comment on their first pull request, which then records this Agreement.
+We confirm by email and keep the signed email as the record of this Agreement. Each listed
+employee also signs the [Individual Agreement](INDIVIDUAL.md) with one comment on their first pull
+request, as their employer has approved it.
 
 ## 1. Definitions
 

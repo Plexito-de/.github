@@ -17,7 +17,8 @@ a license that is not open source.
 
 ## How the check works
 
-A GitHub Action runs on every pull request. It looks up each commit author in the repository's
-signature record, on the `cla-signatures` branch. It sets the commit status `cla` to success when
+A GitHub Action runs on every pull request. It looks up the pull request author and each commit
+author in the repository's signature record, on the `cla-signatures` branch. Co-authors named
+only in a `Co-authored-by` trailer are not checked yet. It sets the commit status `cla` to success when
 every author has signed. It does nothing else with your data. The workflow is
 [cla.yml](../.github/workflows/cla.yml) and its logic is [cla.mjs](../.github/scripts/cla.mjs).

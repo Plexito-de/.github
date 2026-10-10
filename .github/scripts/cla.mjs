@@ -39,7 +39,9 @@ export function allowed(login, allowlist) {
 export function committers(commits, author) {
   const users = new Map();
   const unlinked = new Set();
-  const add = (u) => u && u.type !== "Bot" && users.set(u.id, { login: u.login, id: u.id });
+  // Bots are not skipped by type: anyone can open a pull request through their own GitHub App.
+  // Exempt named bots through the allowlist instead.
+  const add = (u) => u && users.set(u.id, { login: u.login, id: u.id });
   add(author);
   for (const c of commits) {
     if (c.author) add(c.author);
@@ -53,6 +55,10 @@ export function evaluate({ users, unlinked }, signatures, allowlist) {
   const missing = users.filter((u) => !signedIds.has(u.id) && !allowed(u.login, allowlist));
   return { missing, unlinked, ok: missing.length === 0 && unlinked.length === 0 };
 }
+
+// A commit author name is free text, so it may not carry markdown, a mention or a line break.
+export const plain = (name) =>
+  String(name).replace(/[`\r\n@<>\[\]()*_|\\]/g, "").slice(0, 60) || "unknown";
 
 export function commentBody({ missing, unlinked, ok }) {
   if (ok) {
@@ -76,7 +82,7 @@ export function commentBody({ missing, unlinked, ok }) {
   }
   if (unlinked.length) {
     lines.push(
-      `Commits by ${unlinked.map((n) => `\`${n}\``).join(", ")} are not linked to a GitHub ` +
+      `Commits by ${unlinked.map((n) => `\`${plain(n)}\``).join(", ")} are not linked to a GitHub ` +
         "account. Add the commit email to your GitHub account, or amend the commits, then comment `recheck`.",
     );
   }
@@ -118,7 +124,12 @@ async function ensureBranch(github, repo) {
     tree: tree.data.sha,
     parents: [],
   });
-  await github.rest.git.createRef({ ...repo, ref: `refs/heads/${BRANCH}`, sha: commit.data.sha });
+  try {
+    await github.rest.git.createRef({ ...repo, ref: `refs/heads/${BRANCH}`, sha: commit.data.sha });
+  } catch (error) {
+    // Two first signers at once: the other run created the branch. Use it.
+    if (error.status !== 422) throw error;
+  }
 }
 
 async function recordSignature(github, repo, signature) {
@@ -149,7 +160,9 @@ async function upsertComment(github, repo, number, body, ok) {
     issue_number: number,
     per_page: 100,
   });
-  const mine = comments.find((c) => c.user?.type === "Bot" && c.body?.includes(MARKER));
+  const mine = comments.find(
+    (c) => c.user?.login === "github-actions[bot]" && c.body?.includes(MARKER),
+  );
   if (mine) {
     if (mine.body !== body) {
       await github.rest.issues.updateComment({ ...repo, comment_id: mine.id, body });
