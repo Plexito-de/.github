@@ -2,7 +2,7 @@ Plexito builds custom software, AI agents and workflow automations for businesse
 
 Open source:
 
-- [wiretruth](https://github.com/Plexito-de/wiretruth): does your LLM telemetry tell the truth? Provider responses replayed through instrumentation libraries, every reported value checked against the wire.
+- [spantruth](https://github.com/Plexito-de/spantruth): does your LLM telemetry tell the truth? Provider responses replayed through instrumentation libraries, every reported value checked against the wire.
 - [honed-skills](https://github.com/Plexito-de/honed-skills): Agent Skills honed against real work.
 
 Contributions are welcome in every repository. See its CONTRIBUTING.md.
