@@ -8,7 +8,8 @@ Stdlib only. Reads the live site, never the repo, because the defects it finds
 import re, struct, sys, uuid
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
-from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
+from urllib.request import (HTTPDefaultErrorHandler, HTTPErrorProcessor, HTTPHandler, HTTPRedirectHandler,
+                            HTTPSHandler, OpenerDirector, Request)
 from urllib.error import HTTPError, URLError
 
 UA = {"User-Agent": "appearance-check/1"}
@@ -26,8 +27,20 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+def opener(follow):
+    # http and https only: og:image, icon and sitemap URLs come from the page, and the default opener
+    # would also read file:// and ftp:// for them.
+    op = OpenerDirector()
+    for h in (HTTPHandler(), HTTPSHandler(), HTTPDefaultErrorHandler(), HTTPErrorProcessor(),
+              HTTPRedirectHandler() if follow else NoRedirect()):
+        op.add_handler(h)
+    return op
+
+
 def get(url, follow=True, limit=2_000_000):
-    op = build_opener() if follow else build_opener(NoRedirect)
+    if urlparse(url).scheme not in ("http", "https"):
+        return None, b"", {}, url
+    op = opener(follow)
     try:
         r = op.open(Request(url, headers=UA), timeout=15)
     except HTTPError as e:
