@@ -1,0 +1,36 @@
+name: appearance-check
+description: >-
+  After a deploy, check how the live home page looks in Google results and share cards: favicon,
+  one host, canonical, title and description length, share image, robots, sitemap and soft 404.
+  Warn-only by default, because a long description should not block a release.
+inputs:
+  url:
+    description: Live URL of the home page, for example https://example.com/
+    required: true
+  fail-on-error:
+    description: Set to "true" to fail the step on any FAIL line instead of only warning.
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Search and share appearance
+      shell: bash
+      env:
+        URL: ${{ inputs.url }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        SCRIPT: ${{ github.action_path }}/appearance-check.py
+      run: |
+        set +e
+        out=$(python3 -I "$SCRIPT" "$URL" 2>&1)
+        rc=$?
+        set -e
+        printf '%s\n' "$out"
+        {
+          echo "### Search and share appearance: $URL"
+          echo '```'
+          printf '%s\n' "$out"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        printf '%s\n' "$out" | sed -n 's/^FAIL  */::warning title=appearance-check::/p'
+        if [ "$rc" -ne 0 ] && [ "$FAIL_ON_ERROR" = "true" ]; then exit "$rc"; fi
